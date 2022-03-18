@@ -7,8 +7,6 @@ import { AccountId } from './types'
  * Exporting a new class PostedMessage so it can be used outside of this file.
  */
 
-export const whitelistApply = new PersistentSet<AccountId>('wa')
-
 @nearBindgen
 export class PostedMessage {
   premium: boolean;
@@ -16,18 +14,6 @@ export class PostedMessage {
   constructor(public text: string) {
     this.premium = context.attachedDeposit >= u128.from('10000000000000000000000');
     this.sender = context.sender;
-  }
-}
-
-@nearBindgen
-export class WhitelistContract {
-
-  ownerAccountId: AccountId;
-
-  constructor(
-    ownerAccountId: AccountId
-  ) {
-    ownerAccountId = this.ownerAccountId
   }
 }
 /**

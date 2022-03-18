@@ -5,6 +5,7 @@ import Big from 'big.js';
 import Form from './components/Form';
 import SignIn from './components/SignIn';
 import Messages from './components/Messages';
+import WhiteList from './components/WhiteList';
 
 const SUGGESTED_DONATION = '0';
 const BOATLOAD_OF_GAS = Big(3).times(10 ** 13).toFixed();
@@ -44,7 +45,7 @@ const App = ({ contract, currentUser, nearConfig, wallet }) => {
 
   const signIn = () => {
     wallet.requestSignIn(
-      {contractId: nearConfig.contractName, methodNames: [contract.addMessage.name]}, //contract requesting access
+      { contractId: nearConfig.contractName, methodNames: [contract.addMessage.name] }, //contract requesting access
       'NEAR Guest Book', //optional name
       null, //optional URL to redirect to if the sign in was successful
       null //optional URL to redirect to if the sign in was NOT successful
@@ -59,17 +60,17 @@ const App = ({ contract, currentUser, nearConfig, wallet }) => {
   return (
     <main>
       <header>
-        <h1>NEAR Guest Book</h1>
-        { currentUser
+        <h1>NEAR Starter</h1>
+        {currentUser
           ? <button onClick={signOut}>Log out</button>
           : <button onClick={signIn}>Log in</button>
         }
       </header>
-      { currentUser
-        ? <Form onSubmit={onSubmit} currentUser={currentUser} />
-        : <SignIn/>
+      {currentUser
+        ? <WhiteList onSubmit={onSubmit} currentUser={currentUser} contract={contract} />
+        : <SignIn />
       }
-      { !!currentUser && !!messages.length && <Messages messages={messages}/> }
+      {!!currentUser && !!messages.length && <Messages messages={messages} />}
     </main>
   );
 };
@@ -77,7 +78,16 @@ const App = ({ contract, currentUser, nearConfig, wallet }) => {
 App.propTypes = {
   contract: PropTypes.shape({
     addMessage: PropTypes.func.isRequired,
-    getMessages: PropTypes.func.isRequired
+    getMessages: PropTypes.func.isRequired,
+    getListWhitelistApply: PropTypes.func.isRequired,
+    getListWhitelist: PropTypes.func.isRequired,
+    isWhitelistApplied: PropTypes.func.isRequired,
+    isWhitelisted: PropTypes.func.isRequired,
+    isOwner: PropTypes.func.isRequired,
+    applyWhitelist: PropTypes.func.isRequired,
+    randomWhitelist: PropTypes.func.isRequired,
+    addWhitelist: PropTypes.func.isRequired,
+    removeWhitelist: PropTypes.func.removeWhitelist,
   }).isRequired,
   currentUser: PropTypes.shape({
     accountId: PropTypes.string.isRequired,

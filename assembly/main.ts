@@ -1,5 +1,5 @@
 import { Context, env, PersistentSet, storage } from 'near-sdk-as';
-import { PostedMessage, messages, WhitelistContract, whitelistApply } from './model';
+import { PostedMessage, messages } from './model';
 import { AccountId } from './types';
 
 // --- contract code goes below
@@ -8,17 +8,10 @@ import { AccountId } from './types';
 const MESSAGE_LIMIT = 10;
 
 // globals
-let contract: WhitelistContract
-let whitelist = new PersistentSet<AccountId>('w')
+let ownerAccountId = 'dragonvu.testnet'
 
-export function initContract(ownerAccountId: AccountId): WhitelistContract {
-  /// Initializes the contract with the given NEAR foundation account ID.
-  assert(!storage.hasKey('init'), 'Already initialized')
-  assert(env.isValidAccountID(ownerAccountId), 'The owner account ID is invalid')
-  contract = new WhitelistContract(ownerAccountId)
-  storage.set('init', true)
-  return contract
-}
+let whitelist = new PersistentSet<AccountId>('w')
+const whitelistApply = new PersistentSet<AccountId>('wa')
 
 /**
  * Adds a new message under the name of the sender's account id.\
@@ -26,7 +19,7 @@ export function initContract(ownerAccountId: AccountId): WhitelistContract {
  * But right now we don't distinguish them with annotations yet.
  */
 export function addMessage(text: string): void {
-  _isInit()
+  assert(env.isValidAccountID(ownerAccountId), 'The given account ID is invalid')
   // Creating a new message and populating fields with our data
   const message = new PostedMessage(text);
   // Adding the message to end of the persistent collection
@@ -38,7 +31,6 @@ export function addMessage(text: string): void {
  * NOTE: This is a view method. Which means it should NOT modify the state.
  */
 export function getMessages(): PostedMessage[] {
-  _isInit()
   const numMessages = min(MESSAGE_LIMIT, messages.length);
   const startIndex = messages.length - numMessages;
   const result = new Array<PostedMessage>(numMessages);
@@ -48,10 +40,19 @@ export function getMessages(): PostedMessage[] {
   return result;
 }
 
-export function applyWhitelist(accountIds: AccountId[]): AccountId[] {
-  _isInit()
+export function tranferOnwer(accountId: AccountId): bool {
   _assertCalledByOwner()
 
+  assert(env.isValidAccountID(accountId), 'The given account ID is invalid')
+  ownerAccountId = accountId
+  return true
+}
+
+export function isOwner(accountId: AccountId): bool {
+  return ownerAccountId == accountId
+}
+
+export function applyWhitelist(accountIds: AccountId[]): AccountId[] {
   let listWhitelistApplySuccess: AccountId[] = []
 
   for (let i = 0; i < accountIds.length; i++) {
@@ -64,13 +65,14 @@ export function applyWhitelist(accountIds: AccountId[]): AccountId[] {
 }
 
 export function getListWhitelistApply(): AccountId[] {
-  _isInit()
-
   return whitelistApply.values()
 }
 
-export function randomWhiteList(numberOfWhitelists: number): AccountId[] {
-  _isInit()
+export function isWhitelistApplied(accountId: AccountId): bool {
+  return whitelistApply.has(accountId)
+}
+
+export function randomWhitelist(numberOfWhitelists: i32): AccountId[] {
   _assertCalledByOwner()
   assert(storage.hasKey('randomWhiteList') && storage.getSome<bool>('randomWhiteList') == true, 'You can only random whitelist once .')
   storage.set('randomWhiteList', true)
@@ -78,32 +80,61 @@ export function randomWhiteList(numberOfWhitelists: number): AccountId[] {
   if (whitelistApply.size <= numberOfWhitelists)
     whitelist = whitelistApply
   else {
-    whitelistApply.values()
+    let whitelistApplyValues = whitelistApply.values()
+    shuffleArray(whitelistApplyValues)
+    const randomWhitelist = whitelistApplyValues.slice(0, numberOfWhitelists)
+    for (let i = 0; i < randomWhitelist.length; i++) {
+      whitelist.add(randomWhitelist[i])
+    }
   }
+  return whitelist.values()
 }
 
-function _isInit(): void {
-  assert(storage.hasKey('init') && storage.getSome<bool>('init') == true, 'The contract should be initialized before usage.')
+export function addWhitelist(accountIds: AccountId[]): AccountId[] {
+  _assertCalledByOwner()
+
+  let listWhitelistAddSuccess: AccountId[] = []
+
+  for (let i = 0; i < accountIds.length; i++) {
+    if (env.isValidAccountID(accountIds[i]))
+      whitelist.add(accountIds[i])
+    listWhitelistAddSuccess.push(accountIds[i])
+  }
+
+  return listWhitelistAddSuccess
+}
+
+export function removeWhitelist(accountIds: AccountId[]): AccountId[] {
+  _assertCalledByOwner()
+
+  let listWhitelistRemoveSuccess: AccountId[] = []
+
+  for (let i = 0; i < accountIds.length; i++) {
+    if (env.isValidAccountID(accountIds[i]))
+      whitelist.delete(accountIds[i])
+    listWhitelistRemoveSuccess.push(accountIds[i])
+  }
+
+  return listWhitelistRemoveSuccess
+}
+
+export function getListWhitelist(): AccountId[] {
+  return whitelist.values()
+}
+
+export function isWhitelisted(accountId: AccountId): bool {
+  return whitelist.has(accountId)
 }
 
 function _assertCalledByOwner(): void {
-  assert(Context.predecessor == contract.ownerAccountId, 'Can only be called by owner')
+  assert(Context.predecessor == ownerAccountId, 'Can only be called by owner')
 }
 
-function _shuffle(array: Array<any>): string[] {
-  let currentIndex = array.length, randomIndex;
-
-  // While there remain elements to shuffle...
-  while (currentIndex != 0) {
-
-    // Pick a remaining element...
-    randomIndex = Math.floor(Math.random() * currentIndex);
-    currentIndex--;
-
-    // And swap it with the current element.
-    if (array[currentIndex] !== undefined && array[randomIndex] !== undefined)
-      [array[currentIndex][Symbol.iterator], array[randomIndex][Symbol.iterator]] = [array[randomIndex], array[currentIndex]];
+function shuffleArray(array: AccountId[]): void {
+  for (var i = array.length - 1; i > 0; i--) {
+    var j = <i32>JSMath.floor(JSMath.random() * (i + 1));
+    var temp = array[i];
+    array[i] = array[j];
+    array[j] = temp;
   }
-
-  return array;
 }
