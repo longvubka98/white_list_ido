@@ -1,4 +1,4 @@
-import { Context, env, PersistentSet, storage } from 'near-sdk-as';
+import { Context, env, PersistentSet, storage, math, base64, ContractPromiseBatch, u128 } from 'near-sdk-as';
 import { PostedMessage, messages } from './model';
 import { AccountId } from './types';
 
@@ -6,6 +6,11 @@ import { AccountId } from './types';
 
 // The maximum number of latest messages the contract returns.
 const MESSAGE_LIMIT = 10;
+let START_SALE_BLOCK = <u64>85524707;
+let END_SALE_BLOCK = <u64>85624707;
+const TOKEN_PRICE = 5000; // 1 near = ? s_tokens, fixed price
+const MAX_SPEND_PER_BUYER = 10 // maximum near BUY amount per account
+const AMOUNT = 5000000; // the amount of presale tokens up for presale
 
 // globals
 let ownerAccountId = 'dragonvu.testnet'
@@ -52,7 +57,34 @@ export function isOwner(accountId: AccountId): bool {
   return ownerAccountId == accountId
 }
 
+export function updateStartBlock(number: u64): bool {
+  _assertCalledByOwner()
+  _assertBeforeSaleStart()
+
+  if (number > env.block_index()) {
+    START_SALE_BLOCK = number
+    return true
+  }
+
+  return false
+}
+
+export function updateEndBlock(number: u64): bool {
+  _assertCalledByOwner()
+  _assertBeforeSaleStart()
+
+  if (number > START_SALE_BLOCK) {
+    END_SALE_BLOCK = number
+    return true
+  }
+
+  return false
+}
+
 export function applyWhitelist(accountIds: AccountId[]): AccountId[] {
+
+  _assertBeforeSaleStart()
+
   let listWhitelistApplySuccess: AccountId[] = []
 
   for (let i = 0; i < accountIds.length; i++) {
@@ -92,13 +124,15 @@ export function randomWhitelist(numberOfWhitelists: i32): AccountId[] {
 
 export function addWhitelist(accountIds: AccountId[]): AccountId[] {
   _assertCalledByOwner()
+  _assertBeforeSaleStart()
 
   let listWhitelistAddSuccess: AccountId[] = []
 
   for (let i = 0; i < accountIds.length; i++) {
-    if (env.isValidAccountID(accountIds[i]))
+    if (env.isValidAccountID(accountIds[i]) && !whitelist.has(accountIds[i])) {
       whitelist.add(accountIds[i])
-    listWhitelistAddSuccess.push(accountIds[i])
+      listWhitelistAddSuccess.push(accountIds[i])
+    }
   }
 
   return listWhitelistAddSuccess
@@ -106,13 +140,15 @@ export function addWhitelist(accountIds: AccountId[]): AccountId[] {
 
 export function removeWhitelist(accountIds: AccountId[]): AccountId[] {
   _assertCalledByOwner()
+  _assertBeforeSaleStart()
 
   let listWhitelistRemoveSuccess: AccountId[] = []
 
   for (let i = 0; i < accountIds.length; i++) {
-    if (env.isValidAccountID(accountIds[i]))
+    if (env.isValidAccountID(accountIds[i]) && whitelist.has(accountIds[i])) {
       whitelist.delete(accountIds[i])
-    listWhitelistRemoveSuccess.push(accountIds[i])
+      listWhitelistRemoveSuccess.push(accountIds[i])
+    }
   }
 
   return listWhitelistRemoveSuccess
@@ -126,15 +162,43 @@ export function isWhitelisted(accountId: AccountId): bool {
   return whitelist.has(accountId)
 }
 
+export function buyToken(amount: u128): bool {
+
+  _assertAfterSaleStart()
+  _assertBeforSaleEnd()
+
+  assert(amount <= u128.from(MAX_SPEND_PER_BUYER), 'alo')
+  const contractAccount = "dragonvu.testnet";
+  let promise = ContractPromiseBatch.create(Context.sender);
+  promise.then(contractAccount).transfer(amount)
+  return true
+}
+
 function _assertCalledByOwner(): void {
   assert(Context.predecessor == ownerAccountId, 'Can only be called by owner')
 }
 
+function _assertBeforeSaleStart(): void {
+  assert(env.block_index() < START_SALE_BLOCK, 'The sale has been started ')
+}
+
+function _assertAfterSaleStart(): void {
+  assert(env.block_index() > START_SALE_BLOCK, 'The sale has not started ')
+}
+
+function _assertBeforSaleEnd(): void {
+  assert(env.block_index() < END_SALE_BLOCK, 'The sale has been ended ')
+}
+
+export function random(): string {
+  return base64.encode(math.randomSeed())
+}
+
 function shuffleArray(array: AccountId[]): void {
-  for (var i = array.length - 1; i > 0; i--) {
-    var j = <i32>JSMath.floor(JSMath.random() * (i + 1));
-    var temp = array[i];
-    array[i] = array[j];
-    array[j] = temp;
-  }
+  // for (var i = array.length - 1; i > 0; i--) {
+  //   var j = <i32>JSMath.floor(JSMath.random() * (i + 1));
+  //   var temp = array[i];
+  //   array[i] = array[j];
+  //   array[j] = temp;
+  // }
 }

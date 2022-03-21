@@ -41,9 +41,9 @@ async function initContract() {
     nearConfig.contractName,
     {
       // View methods are read-only – they don't modify the state, but usually return some value
-      viewMethods: ['getMessages', 'isWhitelistApplied', 'isWhitelisted', 'isOwner', 'getListWhitelistApply', 'getListWhitelist'],
+      viewMethods: ['getMessages', 'isWhitelistApplied', 'isWhitelisted', 'isOwner', 'getListWhitelistApply', 'getListWhitelist', 'getBlockIndex'],
       // Change methods can modify the state, but you don't receive the returned value when called
-      changeMethods: ['addMessage', 'applyWhitelist', 'randomWhitelist', 'addWhitelist', 'removeWhitelist'],
+      changeMethods: ['addMessage', 'applyWhitelist', 'randomWhitelist', 'addWhitelist', 'removeWhitelist', 'random', 'buyToken'],
       // Sender is the account ID to initialize transactions.
       // getAccountId() will return empty string if user is still unauthorized
       sender: walletConnection.getAccountId(),

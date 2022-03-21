@@ -6,16 +6,18 @@ import Form from './components/Form';
 import SignIn from './components/SignIn';
 import Messages from './components/Messages';
 import WhiteList from './components/WhiteList';
+import Owner from './components/Owner';
 
 const SUGGESTED_DONATION = '0';
 const BOATLOAD_OF_GAS = Big(3).times(10 ** 13).toFixed();
 
 const App = ({ contract, currentUser, nearConfig, wallet }) => {
   const [messages, setMessages] = useState([]);
+  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     // TODO: don't just fetch once; subscribe!
-    contract.getMessages().then(setMessages);
+    contract.isOwner({ accountId: currentUser.accountId }).then(setIsOwner);
   }, []);
 
   const onSubmit = (e) => {
@@ -67,7 +69,8 @@ const App = ({ contract, currentUser, nearConfig, wallet }) => {
         }
       </header>
       {currentUser
-        ? <WhiteList onSubmit={onSubmit} currentUser={currentUser} contract={contract} />
+        ? isOwner ? <Owner onSubmit={onSubmit} currentUser={currentUser} contract={contract} />
+          : <WhiteList onSubmit={onSubmit} currentUser={currentUser} contract={contract} />
         : <SignIn />
       }
       {!!currentUser && !!messages.length && <Messages messages={messages} />}
@@ -87,7 +90,9 @@ App.propTypes = {
     applyWhitelist: PropTypes.func.isRequired,
     randomWhitelist: PropTypes.func.isRequired,
     addWhitelist: PropTypes.func.isRequired,
-    removeWhitelist: PropTypes.func.removeWhitelist,
+    removeWhitelist: PropTypes.func.isRequired,
+    random: PropTypes.func.isRequired,
+    buyToken: PropTypes.func.isRequired,
   }).isRequired,
   currentUser: PropTypes.shape({
     accountId: PropTypes.string.isRequired,
